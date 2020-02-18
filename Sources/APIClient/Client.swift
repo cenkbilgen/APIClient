@@ -9,6 +9,7 @@ public class Client {
     public var interceptors = [Intercepting]()
 
     private let session: URLSession
+    private let backgroundSession: URLSession
     private let queue = DispatchQueue.init(label: "com.folio-sec.api-client", qos: .userInitiated)
     private let defaultQueue = DispatchQueue.init(label: "com.folio-sec.api-client.default", qos: .default)
     private let taskExecutor = TaskExecutor()
@@ -34,7 +35,13 @@ public class Client {
         config.timeoutIntervalForRequest = configuration.timeoutIntervalForRequest
         config.timeoutIntervalForResource = configuration.timeoutIntervalForResource
 
-        session = URLSession(configuration: config)
+        let delegateQueue = delegate == nil ? nil : OperationQueue()
+        delegateQueue?.qualityOfService = .default
+        session = URLSession(configuration: config, delegate: delegate, delegateQueue: delegateQueue)
+        
+        let backgroundConfig = URLSessionConfiguration.background(withIdentifier: "com.folio-sec.api-client.background")
+        backgroundConfig.httpAdditionalHeaders = headers
+        backgroundSession = URLSession(configuration: backgroundConfig)
     }
 
     public func cancel(taskIdentifier: Int) {
