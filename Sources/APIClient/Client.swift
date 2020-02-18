@@ -10,6 +10,7 @@ public class Client {
 
     private let session: URLSession
     private let queue = DispatchQueue.init(label: "com.folio-sec.api-client", qos: .userInitiated)
+    private let defaultQueue = DispatchQueue.init(label: "com.folio-sec.api-client.default", qos: .default)
     private let taskExecutor = TaskExecutor()
 
     private var pendingRequests = [PendingRequest]()
@@ -22,12 +23,13 @@ public class Client {
         return decoder
     }()
 
-    public init(baseURL: URL, headers: [AnyHashable: Any] = [:], configuration: Configuration = Configuration()) {
+    public init(baseURL: URL, delegate: URLSessionDelegate? = nil, headers: [AnyHashable: Any] = [:], configuration: Configuration = Configuration()) {
         self.baseURL = baseURL
         self.headers = headers
         self.configuration = configuration
 
-        let config = URLSessionConfiguration.ephemeral
+        //let config = URLSessionConfiguration.ephemeral
+        let config = URLSessionConfiguration.default
         config.httpAdditionalHeaders = headers
         config.timeoutIntervalForRequest = configuration.timeoutIntervalForRequest
         config.timeoutIntervalForResource = configuration.timeoutIntervalForResource
