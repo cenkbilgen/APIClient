@@ -4,74 +4,79 @@ public class Client {
     public let baseURL: URL
     public let headers: [AnyHashable: Any]
     public let configuration: Configuration
-
+    
     public var authenticator: Authenticating?
     public var interceptors = [Intercepting]()
-
+    
     private let session: URLSession
     private let backgroundSession: URLSession
     private let queue = DispatchQueue.init(label: "com.folio-sec.api-client", qos: .userInitiated)
     private let defaultQueue = DispatchQueue.init(label: "com.folio-sec.api-client.default", qos: .default)
     private let taskExecutor = TaskExecutor()
-
+    
     private var pendingRequests = [PendingRequest]()
     private var isRetrying = false
-
+    
     private lazy var decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = configuration.dateDecodingStrategy
         decoder.dataDecodingStrategy = configuration.dataDecodingStrategy
         return decoder
     }()
-
+    
     public init(baseURL: URL, delegate: URLSessionDelegate? = nil, headers: [AnyHashable: Any] = [:], configuration: Configuration = Configuration()) {
         self.baseURL = baseURL
         self.headers = headers
         self.configuration = configuration
-
+        
         //let config = URLSessionConfiguration.ephemeral
         let config = URLSessionConfiguration.default
         config.httpAdditionalHeaders = headers
         config.timeoutIntervalForRequest = configuration.timeoutIntervalForRequest
         config.timeoutIntervalForResource = configuration.timeoutIntervalForResource
-
+        
         let delegateQueue = delegate == nil ? nil : OperationQueue()
         delegateQueue?.qualityOfService = .default
         session = URLSession(configuration: config, delegate: delegate, delegateQueue: delegateQueue)
         
         let backgroundConfig = URLSessionConfiguration.background(withIdentifier: "com.folio-sec.api-client.background")
         backgroundConfig.httpAdditionalHeaders = headers
+        
+        //        if os(.iOS) {
+        //            backgroundConfig.sessionSendsLaunchEvents = true
+        //        }
         backgroundSession = URLSession(configuration: backgroundConfig)
+        backgroundSession.sessionDescription = "background"
     }
-
+    
     public func cancel(taskIdentifier: Int) {
         taskExecutor.cancel(taskIdentifier: taskIdentifier)
     }
-
+    
     public func cancelAll() {
         taskExecutor.cancelAll()
     }
-
+    
     public func perform<ResponseBody>(request: Request<ResponseBody>, completion: @escaping (Result<Response<ResponseBody>, Failure>) -> Void) {
         queue.async { [weak self] in
             guard let self = self else { return }
             self.perform(request: request.makeURLRequest(baseURL: self.baseURL), completion: completion)
         }
     }
-
+    
     private func perform<ResponseBody>(request: URLRequest, completion: @escaping (Result<Response<ResponseBody>, Failure>) -> Void) {
         interceptRequest(interceptors: self.interceptors, request: request) { [weak self] (request) in
             guard let self = self else { return }
-
+            
             let task = self.session.dataTask(with: request) { [weak self] (data, response, error) in
                 guard let self = self else { return }
-
+                
                 self.queue.async { [weak self] in
                     guard let self = self else { return }
-
+                    
                     self.interceptResponse(interceptors: self.interceptors, request: request, response: response, data: data, error: error) { [weak self] (response, data, error) in
                         guard let self = self else { return }
-
+                        
                         self.queue.async { [weak self] in
                             guard let self = self else { return }
                             self.handleResponse(request: request, response: response, data: data, error: error, completion: completion)
@@ -83,10 +88,95 @@ public class Client {
             self.taskExecutor.push(Task(sessionTask: task))
         }
     }
-
+    
+    public func performDownload(request: URLRequest, completion: (Result<Response<Data>, Failure>) -> Void) {
+        
+        let d = session.downloadTask(with: request) { (tempURL, response, error) in
+        
+//        let downloadTask = session.downloadTask(with: request) { (tempURL, response, error) in
+//
+            guard error == nil else {
+                completion(Result.failure(.networkError(error!)))
+                return
+            }
+            guard let response = response as? HTTPURLResponse else {
+                completion(Result.failure(.urlError(URLError(.badServerResponse))))
+                return
+            }
+            guard response.statusCode == 200 || response.statusCode == 304 else {
+                completion(Result.failure(.responseError(response.statusCode, [:], Data())))
+                return
+            }
+            guard let tempURL = tempURL else {
+                completion(Result.failure(.urlError(URLError(.fileDoesNotExist))))
+                return
+            }
+            
+            guard let data = try Data(contentsOf: tempURL, options: [.uncached, .mappedIfSafe]) else {
+                completion(Result.failure(.urlError(URLError(.cannotDecodeContentData))))
+                return
+            }
+            
+            completion(Result.success(data))
+        }
+            
+//        self.taskExecutor.startPendingTasks()
+//
+//        queue.async {
+//            let task = DownloadTask(sessionTask: downloadTask, url: url)
+//            self.taskExecutor.push(task)
+//            //      downloadTask.resume()
+//        }
+        
+    }
+    
+    public enum UploadSource {
+        case data(Data)
+        case file(URL)
+        
+        func data() throws -> Data {
+            switch self {
+            case .data(let data):
+                return data
+            case .file(let url):
+                return try Data(contentsOf: url, options: [.uncached])
+            }
+        }
+    }
+    
+    public func performUpload(request: URLRequest, source: UploadSource, completion: (Result<Never, Failure>) -> Void) {
+        
+        do {
+            let data = try source.data()
+            
+            interceptRequest(interceptors: self.interceptors, request: request) { [weak self] (request) in
+                guard let self = self else { return }
+                
+                let task = self.session.uploadTask(with: request, from: data) {
+                    [weak self] (data, response, error) in
+                    guard let self = self else { return }
+                    
+                    
+                        
+//                    self.queue.async { [weak self] in
+//                        guard let self = self else { return
+//                        self.taskExecutor.startPendingTasks()
+//                    }
+                }
+                self.taskExecutor.push(Task(sessionTask: task))
+            }
+            
+        } catch {
+            
+            print("Error Uploading. \(error)")
+            
+        }
+        
+    }
+    
     private func handleResponse<ResponseBody>(request: URLRequest, response: URLResponse?, data: Data?, error: Error?, completion: @escaping (Result<Response<ResponseBody>, Failure>) -> Void) {
         let q = configuration.queue
-
+        
         if let error = error {
             q.async {
                 completion(.failure(.networkError(error)))
@@ -128,13 +218,13 @@ public class Client {
                 if let authenticator = self.authenticator, authenticator.shouldRetry(client: self, request: request, response: response, data: data) {
                     if !isRetrying {
                         isRetrying = true
-
+                        
                         self.authenticate(authenticator: authenticator, request: request, response: response, data: data) { [weak self] (result) in
                             guard let self = self else { return }
-
+                            
                             self.queue.async { [weak self] in
                                 guard let self = self else { return }
-
+                                
                                 switch result {
                                 case .success(let request):
                                     self.perform(request: request, completion: completion)
@@ -151,7 +241,7 @@ public class Client {
                                     }
                                     self.cancelPendingRequests(error)
                                 }
-
+                                
                                 self.isRetrying = false
                             }
                         }
@@ -176,37 +266,37 @@ public class Client {
             }
         }
     }
-
+    
     private func retryPendingRequests() {
         for request in pendingRequests {
             request.retry()
         }
         pendingRequests.removeAll()
     }
-
+    
     private func failPendingRequests(_ error: Failure) {
         for request in pendingRequests {
             request.fail(error)
         }
         pendingRequests.removeAll()
     }
-
+    
     private func cancelPendingRequests(_ error: Failure) {
         for request in pendingRequests {
             request.cancel(error)
         }
         pendingRequests.removeAll()
     }
-
+    
     private func interceptRequest(interceptors: [Intercepting], request: URLRequest, completion: @escaping (URLRequest) -> Void) {
         completion(interceptors.reduce(request) { $1.intercept(client: self, request: $0) })
     }
-
+    
     private func interceptResponse(interceptors: [Intercepting], request: URLRequest, response: URLResponse?, data: Data?, error: Error?, completion: @escaping (URLResponse?, Data?, Error?) -> Void) {
         let (response, data, error) = interceptors.reduce((response, data, error)) { $1.intercept(client: self, request: request, response: $0.0, data: $0.1, error: $0.2) }
         completion(response, data, error)
     }
-
+    
     private func authenticate(authenticator: Authenticating, request: URLRequest, response: HTTPURLResponse, data: Data?, completion: @escaping (AuthenticationResult) -> Void) {
         let client = Client(baseURL: baseURL, headers: headers, configuration: configuration)
         client.interceptors = interceptors
@@ -228,7 +318,7 @@ private class TaskExecutor {
     private var tasks = [Task]()
     private var runningTasks = [Int: Task]()
     private let maxConcurrentTasks = 4
-
+    
     func push(_ task: Task) {
         if let index = tasks.firstIndex(of: task) {
             tasks.remove(at: index)
@@ -236,20 +326,20 @@ private class TaskExecutor {
         tasks.append(task)
         startPendingTasks()
     }
-
+    
     func cancel(taskIdentifier: Int) {
         if let task = runningTasks[taskIdentifier] {
             task.sessionTask.cancel()
             runningTasks[taskIdentifier] = nil
         }
     }
-
+    
     func cancelAll() {
         (tasks + runningTasks.values).forEach { $0.sessionTask.cancel() }
         tasks.removeAll()
         runningTasks.removeAll()
     }
-
+    
     func startPendingTasks() {
         for runningTask in runningTasks {
             switch runningTask.value.sessionTask.state {
@@ -272,16 +362,16 @@ private class TaskExecutor {
 private class Task: Hashable {
     let sessionTask: URLSessionTask
     let taskIdentifier: Int
-
+    
     init(sessionTask: URLSessionTask) {
         self.sessionTask = sessionTask
         self.taskIdentifier = sessionTask.taskIdentifier
     }
-
+    
     func hash(into hasher: inout Hasher) {
         hasher.combine(taskIdentifier)
     }
-
+    
     static func == (lhs: Task, rhs: Task) -> Bool {
         return lhs.taskIdentifier == rhs.taskIdentifier
     }

@@ -4,11 +4,13 @@ public struct Request<ResponseBody> {
     public let endpoint: String
     public let method: String
     public let parameters: Parameters?
+    public let additionalHeaderValues: [String: String] // (headerKey, value)
 
-    public init(endpoint: String, method: String, parameters: Parameters? = nil) {
+  public init(endpoint: String, method: String, parameters: Parameters? = nil, additionalHeaderValues: [String: String] = [:]) {
         self.endpoint = endpoint
         self.method = method
         self.parameters = parameters
+        self.additionalHeaderValues = additionalHeaderValues
     }
 
     public enum Parameters {
@@ -101,6 +103,10 @@ public struct Request<ResponseBody> {
                 request.addValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
                 request.httpBody = data
             }
+        }
+        
+        for (key, value) in additionalHeaderValues {
+            request.addValue(value, forHTTPHeaderField: key)
         }
 
         return request
