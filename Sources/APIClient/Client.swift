@@ -89,46 +89,44 @@ public class Client {
         }
     }
     
-    public func performDownload(request: URLRequest, completion: (Result<Response<Data>, Failure>) -> Void) {
-        
-        let d = session.downloadTask(with: request) { (tempURL, response, error) in
-        
+//    public func performDownload(request: URLRequest, completion: (Result<Response<Data>, Failure>) -> Void) {
+//        
 //        let downloadTask = session.downloadTask(with: request) { (tempURL, response, error) in
 //
-            guard error == nil else {
-                completion(Result.failure(.networkError(error!)))
-                return
-            }
-            guard let response = response as? HTTPURLResponse else {
-                completion(Result.failure(.urlError(URLError(.badServerResponse))))
-                return
-            }
-            guard response.statusCode == 200 || response.statusCode == 304 else {
-                completion(Result.failure(.responseError(response.statusCode, [:], Data())))
-                return
-            }
-            guard let tempURL = tempURL else {
-                completion(Result.failure(.urlError(URLError(.fileDoesNotExist))))
-                return
-            }
-            
-            guard let data = try Data(contentsOf: tempURL, options: [.uncached, .mappedIfSafe]) else {
-                completion(Result.failure(.urlError(URLError(.cannotDecodeContentData))))
-                return
-            }
-            
-            completion(Result.success(data))
-        }
-            
-//        self.taskExecutor.startPendingTasks()
-//
-//        queue.async {
-//            let task = DownloadTask(sessionTask: downloadTask, url: url)
-//            self.taskExecutor.push(task)
-//            //      downloadTask.resume()
+//            guard error == nil else {
+//                completion(Result.failure(.networkError(error!)))
+//                return
+//            }
+//            guard let response = response as? HTTPURLResponse else {
+//                completion(Result.failure(.urlError(URLError(.badServerResponse))))
+//                return
+//            }
+//            guard response.statusCode == 200 || response.statusCode == 304 else {
+//                completion(Result.failure(.responseError(response.statusCode, [:], Data())))
+//                return
+//            }
+//            guard let tempURL = tempURL else {
+//                completion(Result.failure(.urlError(URLError(.fileDoesNotExist))))
+//                return
+//            }
+//            
+//            guard let data = try Data(contentsOf: tempURL, options: [.uncached, .mappedIfSafe]) else {
+//                completion(Result.failure(.urlError(URLError(.cannotDecodeContentData))))
+//                return
+//            }
+//            
+//            completion(Result.success(data))
 //        }
-        
-    }
+//            
+////        self.taskExecutor.startPendingTasks()
+////
+////        queue.async {
+////            let task = DownloadTask(sessionTask: downloadTask, url: url)
+////            self.taskExecutor.push(task)
+////            //      downloadTask.resume()
+////        }
+//        
+//    }
     
     public enum UploadSource {
         case data(Data)
@@ -155,14 +153,17 @@ public class Client {
                 let task = self.session.uploadTask(with: request, from: data) {
                     [weak self] (data, response, error) in
                     guard let self = self else { return }
-                    
-                    
-                        
+
+                    if let error = error {
+                        print("In \(self.session)")
+                        print("Upload Error. \(error)")
+                    }
 //                    self.queue.async { [weak self] in
 //                        guard let self = self else { return
 //                        self.taskExecutor.startPendingTasks()
 //                    }
                 }
+              
                 self.taskExecutor.push(Task(sessionTask: task))
             }
             
