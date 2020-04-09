@@ -38,7 +38,7 @@
 		1415324C225A2AB500C74C18 /* Project-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Project-Release.xcconfig"; sourceTree = "<group>"; };
 		1415324E225A2AB500C74C18 /* Project-Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Project-Shared.xcconfig"; sourceTree = "<group>"; };
 		14153251225A2AB500C74C18 /* APIClient-Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "APIClient-Shared.xcconfig"; sourceTree = "<group>"; };
-		1463BA8F223E23F800570758 /* RequestProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RequestProvider.swift; sourceTree = "<group>"; };
+		1463BA8F223E23F800570758 /* RequestProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.swift; path = RequestProvider.swift; sourceTree = "<group>"; tabWidth = 4; };
 		1463BA93223E262C00570758 /* Logger.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		14847E5F2212054200478D45 /* Authenticator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Authenticator.swift; sourceTree = "<group>"; };
 		14DDC19521F4B5DD006E01E8 /* APIClient.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = APIClient.framework; sourceTree = BUILT_PRODUCTS_DIR; };

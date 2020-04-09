@@ -4,13 +4,13 @@ public struct Request<ResponseBody> {
     public let endpoint: String
     public let method: String
     public let parameters: Parameters?
-    public let additionalHeaderValues: [String: String] // (headerKey, value)
+    public let additionalHeaders: [String: String] // (headerKey, value)
 
-  public init(endpoint: String, method: String, parameters: Parameters? = nil, additionalHeaderValues: [String: String] = [:]) {
+  public init(endpoint: String, method: String, parameters: Parameters? = nil, additionalHeaders: [String: String] = [:]) {
         self.endpoint = endpoint
         self.method = method
         self.parameters = parameters
-        self.additionalHeaderValues = additionalHeaderValues
+        self.additionalHeaders = additionalHeaders
     }
 
     public enum Parameters {
@@ -105,7 +105,7 @@ public struct Request<ResponseBody> {
             }
         }
         
-        for (key, value) in additionalHeaderValues {
+        for (key, value) in additionalHeaders {
             request.addValue(value, forHTTPHeaderField: key)
         }
 
