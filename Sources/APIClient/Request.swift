@@ -106,7 +106,7 @@ public struct Request<ResponseBody> {
         }
         
         for (key, value) in additionalHeaders {
-            request.addValue(value, forHTTPHeaderField: key)
+            request.setValue(value, forHTTPHeaderField: key)
         }
 
         return request
