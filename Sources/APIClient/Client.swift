@@ -10,8 +10,8 @@ public class Client {
     
     private let session: URLSession
     private let backgroundSession: URLSession
-    private let queue = DispatchQueue.init(label: "com.folio-sec.api-client", qos: .userInitiated)
-    private let defaultQueue = DispatchQueue.init(label: "com.folio-sec.api-client.default", qos: .default)
+    private let queue: DispatchQueue
+    private let defaultQueue: DispatchQueue
     private let taskExecutor = TaskExecutor()
     
     private var pendingRequests = [PendingRequest]()
@@ -24,7 +24,7 @@ public class Client {
         return decoder
     }()
     
-    public init(baseURL: URL, delegate: URLSessionDelegate? = nil, headers: [AnyHashable: Any] = [:], configuration: Configuration = Configuration()) {
+    public init(baseURL: URL, delegate: URLSessionDelegate? = nil, headers: [AnyHashable: Any] = [:], configuration: Configuration = Configuration(), label: String = "com.folio-sec") {
         self.baseURL = baseURL
         self.headers = headers
         self.configuration = configuration
@@ -38,13 +38,17 @@ public class Client {
         let delegateQueue = delegate == nil ? nil : OperationQueue()
         delegateQueue?.qualityOfService = .default
         session = URLSession(configuration: config, delegate: delegate, delegateQueue: delegateQueue)
+    
+        queue = DispatchQueue.init(label: label + ".api-client", qos: .userInitiated)
+        defaultQueue = DispatchQueue.init(label: label + ".default", qos: .default)
         
-        let backgroundConfig = URLSessionConfiguration.background(withIdentifier: "com.folio-sec.api-client.background")
+        let backgroundConfig = URLSessionConfiguration.background(withIdentifier: label + ".api-client.background")
         backgroundConfig.httpAdditionalHeaders = headers
         
         //        if os(.iOS) {
         //            backgroundConfig.sessionSendsLaunchEvents = true
         //        }
+        
         backgroundSession = URLSession(configuration: backgroundConfig)
         backgroundSession.sessionDescription = "background"
     }
